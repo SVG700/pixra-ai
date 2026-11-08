@@ -1,0 +1,20 @@
+<%#
+  Shows what the job runner is doing right now. Locals: a = jobActivity() result, compact = bool.
+%><% if (a) {
+  let text, cls;
+  if (a.state === 'queued') {
+    cls = 'act-wait';
+    text = compact ? `⏳ queued (${a.ahead} ahead)` : `⏳ In queue: ${a.ahead} job${a.ahead > 1 ? 's' : ''} ahead. Jobs run one at a time to stay within the free quotas. Nothing to do.`;
+  } else if (a.wait) {
+    cls = 'act-wait';
+    const at = h.formatClock(a.wait.until);
+    const why = a.wait.status === 429 ? `${a.wait.service} free-tier rate limit (HTTP 429)`
+      : a.wait.status >= 500 ? `${a.wait.service} temporarily unavailable (HTTP ${a.wait.status})`
+      : `${a.wait.service} network error`;
+    text = compact ? `⏳ waiting: ${a.wait.status === 429 ? 'rate limit' : 'retrying'} (${a.wait.service})`
+      : `⏳ Waiting for ${why}. Automatic retry ${a.wait.attempt} of ${a.wait.retries} at ${at}. Nothing to do; this is not stuck.`;
+  } else {
+    cls = 'act-run';
+    text = compact ? `⚙ ${a.step}` : `⚙ ${a.step}…`;
+  }
+%><div class="act <%= cls %><%= compact ? ' small' : '' %>" role="status"><%= text %></div><% } %>

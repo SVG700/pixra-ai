@@ -1,0 +1,16 @@
+<%- include('partials/head', { title: 'Log in' }) %>
+<div class="panel" style="max-width:380px;margin:60px auto">
+  <h1>Admin login</h1>
+  <% if (!configured) { %>
+    <div class="flash err">ADMIN_PASSWORD is not set. Add it to .env (or Render → Environment) and restart.</div>
+  <% } %>
+  <% if (error) { %><div class="flash err"><%= error %></div><% } %>
+  <form method="post" action="/admin/login">
+    <label for="name">Your name (shown on review actions)</label>
+    <input type="text" id="name" name="name" autocomplete="name" placeholder="e.g. Priya">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required autofocus>
+    <p><button class="primary" type="submit" <%= configured ? '' : 'disabled' %>>Log in</button></p>
+  </form>
+</div>
+<%- include('partials/foot') %>

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PIXRA AI chat</title>
+<style>
+  :root { --bg:#efeae2; --me:#d9fdd3; --bot:#fff; --ink:#111b21; --muted:#667781; --brand:#008069; --bar:#f0f2f5; --line:#d1d7db; --err:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b141a; --me:#005c4b; --bot:#1f2c34; --ink:#e9edef; --muted:#8696a0; --brand:#00a884; --bar:#1f2c34; --line:#2a3942; --err:#f97066; } }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:#d1d7db; }
+  @media (prefers-color-scheme: dark) { body { background:#111b21; } }
+  .app { max-width:720px; margin:0 auto; height:100dvh; display:flex; flex-direction:column; background:var(--bg); }
+  header { background:var(--brand); color:#fff; padding:10px 16px; display:flex; align-items:center; gap:12px; }
+  header .t { flex:1; min-width:0; } header b { display:block; font-size:16px; } header small { opacity:.85; }
+  header form { margin:0; } header button { background:transparent; color:#fff; border:1px solid rgba(255,255,255,.6); border-radius:8px; padding:5px 10px; font:inherit; font-size:13px; cursor:pointer; }
+  #log { flex:1; overflow-y:auto; padding:14px 12px; display:flex; flex-direction:column; gap:6px; }
+  .msg { max-width:82%; padding:7px 10px; border-radius:8px; white-space:pre-wrap; overflow-wrap:anywhere; box-shadow:0 1px 1px rgba(0,0,0,.08); }
+  .in { align-self:flex-end; background:var(--me); } .out { align-self:flex-start; background:var(--bot); }
+  .msg img { display:block; max-width:100%; max-height:440px; border-radius:6px; margin-bottom:4px; }
+  .msg audio { display:block; max-width:240px; margin-bottom:4px; }
+  .meta { font-size:11px; color:var(--muted); text-align:right; margin-top:2px; }
+  .dl { font-size:12px; }
+  .empty { margin:auto; text-align:center; color:var(--muted); max-width:300px; }
+  form.bar { display:flex; gap:6px; padding:8px; background:var(--bar); align-items:center; padding-bottom:max(8px, env(safe-area-inset-bottom)); }
+  #text { flex:1; min-width:0; padding:10px 12px; border-radius:20px; border:0; font:inherit; background:var(--bot); color:var(--ink); }
+  .btn { border:0; background:var(--brand); color:#fff; border-radius:20px; padding:9px 12px; cursor:pointer; font:inherit; font-size:14px; white-space:nowrap; }
+  .btn.alt { background:#54656f; } .btn.rec { background:var(--err); }
+  input[type=file] { display:none; }
+  .busy { opacity:.6; pointer-events:none; }
+  #status { font-size:12px; color:var(--err); padding:0 12px 6px; background:var(--bar); min-height:6px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="t"><b>PIXRA AI</b><small>Hi <%= name %> — your poster assistant</small></div>
+    <form method="post" action="/demo/logout"><button type="submit">Sign out</button></form>
+  </header>
+  <div id="log" aria-live="polite"><div class="empty">Say <b>hi</b> to start. Describe the poster you need — you can type, send a voice note, or send your logo as an image.</div></div>
+  <form class="bar" id="form">
+    <label class="btn alt" title="Send an image (add the caption 'logo' for your logo)">Image<input type="file" id="img" accept="image/png,image/jpeg,image/webp"></label>
+    <button class="btn alt" type="button" id="recBtn" title="Record a voice note">Voice</button>
+    <label class="btn alt" id="audLabel" title="Upload a voice note file" hidden>File<input type="file" id="aud" accept="audio/*"></label>
+    <input id="text" placeholder="Type a message" autocomplete="off" maxlength="2000">
+    <button class="btn" type="submit">Send</button>
+  </form>
+  <div id="status" role="status"></div>
+</div>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const log = $('log'), statusEl = $('status');
+  let lastSig = '';
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const safeUrl = (u) => (/^(https:\/\/|\/uploads\/)/.test(u || '') ? u : '');
+  const fmt = (s) => esc(s).replace(/\*([^*\n]+)\*/g, '<b>$1</b>'); // WhatsApp-style *bold*
+
+  function render(msgs) {
+    const sig = msgs.length + ':' + (msgs.at(-1)?.id || '');
+    if (sig === lastSig) return;
+    lastSig = sig;
+    if (!msgs.length) return;
+    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 120;
+    log.innerHTML = msgs.map((m) => {
+      const url = safeUrl(m.media_url);
+      let media = '';
+      if (url && m.type === 'image') media = `<a href="${esc(url)}" target="_blank" rel="noopener"><img src="${esc(url)}" alt="${m.direction === 'out' ? 'Your poster' : 'Image you sent'}"></a>`
+        + (m.direction === 'out' ? `<a class="dl" href="${esc(url)}" download target="_blank" rel="noopener">Download poster</a>` : '');
+      if (url && m.type === 'audio') media = `<audio controls src="${esc(url)}"></audio>`;
+      const text = m.content ? (m.type === 'audio' ? '🎤 ' : '') + fmt(m.content) : '';
+      return `<div class="msg ${m.direction}">${media}${text}<div class="meta">${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></div>`;
+    }).join('');
+    if (atBottom || msgs.length < 4) log.scrollTop = log.scrollHeight;
+  }
+
+  async function refresh() {
+    try {
+      const r = await fetch('/demo/messages', { cache: 'no-store' });
+      if (r.status === 401) return location.reload();
+      if (r.ok) render((await r.json()).messages || []);
+    } catch {}
+  }
+
+  async function send(fd) {
+    const form = $('form');
+    form.classList.add('busy');
+    statusEl.textContent = '';
+    try {
+      const r = await fetch('/demo/send', { method: 'POST', body: fd });
+      if (r.status === 429) statusEl.textContent = 'You are sending messages too fast — please wait a few minutes.';
+      else if (!r.ok) statusEl.textContent = (await r.json().catch(() => ({}))).error || 'Could not send. Try again.';
+    } catch { statusEl.textContent = 'Network problem — please try again.'; }
+    finally { form.classList.remove('busy'); setTimeout(refresh, 400); }
+  }
+
+  $('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = $('text').value.trim();
+    if (!text) return;
+    $('text').value = '';
+    const fd = new FormData(); fd.append('text', text); send(fd);
+  });
+  $('img').addEventListener('change', (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append('file', f); fd.append('text', $('text').value.trim()); $('text').value = '';
+    send(fd); e.target.value = '';
+  });
+  $('aud').addEventListener('change', (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append('file', f); send(fd); e.target.value = '';
+  });
+
+  // Voice notes: record in the browser if possible, otherwise offer a file upload.
+  const recBtn = $('recBtn');
+  let rec = null, chunks = [];
+  if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    recBtn.hidden = true; $('audLabel').hidden = false;
+  }
+  recBtn.addEventListener('click', async () => {
+    if (rec && rec.state === 'recording') { rec.stop(); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const type = ['audio/ogg;codecs=opus', 'audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+      rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      chunks = [];
+      rec.ondataavailable = (ev) => ev.data.size && chunks.push(ev.data);
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        recBtn.textContent = 'Voice'; recBtn.classList.remove('rec');
+        const mime = (rec.mimeType || 'audio/webm').split(';')[0];
+        const blob = new Blob(chunks, { type: mime });
+        if (blob.size < 500) { statusEl.textContent = 'Recording was too short.'; return; }
+        const ext = mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'm4a' : 'webm';
+        const fd = new FormData(); fd.append('file', blob, `voice-note.${ext}`); send(fd);
+      };
+      rec.start();
+      recBtn.textContent = 'Stop'; recBtn.classList.add('rec');
+      statusEl.textContent = '';
+    } catch {
+      statusEl.textContent = 'Microphone not available — upload a voice note file instead.';
+      recBtn.hidden = true; $('audLabel').hidden = false;
+    }
+  });
+
+  refresh();
+  setInterval(refresh, 2000);
+})();
+</script>
+</body>
+</html>

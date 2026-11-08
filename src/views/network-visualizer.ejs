@@ -1,0 +1,189 @@
+<%# PIXRA AI network visualizer: live architecture explorer. Data comes from /network-visualizer/api/* and /events. %>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>PIXRA AI · Network OS</title>
+  <link rel="stylesheet" href="/network-visualizer/assets/nv.css">
+</head>
+<body>
+<div class="nv" id="nv">
+  <canvas id="graph" aria-label="Architecture graph. Use the search box or command bar to find and select nodes." role="img"></canvas>
+
+  <!-- A. left sidebar -->
+  <aside class="panel left" id="left" aria-label="Network controls">
+    <header class="brand">
+      <div>
+        <h1>PIXRA AI <span>· NETWORK OS</span></h1>
+        <p id="brandSub">loading architecture…</p>
+      </div>
+      <a href="/admin" class="back">← back to admin</a>
+    </header>
+
+    <section class="box">
+      <h2>Network overview</h2>
+      <dl class="stats">
+        <div><dt>Nodes</dt><dd id="stNodes">–</dd></div>
+        <div><dt>Connections</dt><dd id="stEdges">–</dd></div>
+        <div><dt>Active services</dt><dd id="stServices">–</dd></div>
+        <div><dt>Last update</dt><dd id="stUpdated">–</dd></div>
+      </dl>
+    </section>
+
+    <section class="box">
+      <label class="h2" for="search">Search the network</label>
+      <input id="search" type="search" placeholder="gemini, supabase, admin, /webhook…" autocomplete="off" spellcheck="false">
+      <ul id="results" class="list results" aria-label="Search results"></ul>
+    </section>
+
+    <section class="box">
+      <h2>Inspector</h2>
+      <div id="inspector" class="inspector">
+        <p class="hint">Click a node to focus it — it and its connections light up and its details appear here. Shift-click a second node to trace the shortest path. Ctrl/⌘-click to multi-select. Click a line to inspect a connection.</p>
+      </div>
+    </section>
+
+    <section class="box">
+      <h2>Top hubs</h2>
+      <ul id="hubs" class="list hubs"></ul>
+    </section>
+
+    <section class="box">
+      <h2>Forces</h2>
+      <div class="sliders">
+        <label>Repel <input type="range" id="fRepel" min="5" max="400" value="170"></label>
+        <label>Link length <input type="range" id="fLink" min="10" max="200" value="62"></label>
+        <label>Collision <input type="range" id="fCollide" min="0" max="30" value="6"></label>
+        <label title="How strongly each cluster pulls its nodes together">Cluster pull <input type="range" id="fGravity" min="0" max="40" value="5"></label>
+      </div>
+    </section>
+
+    <section class="box">
+      <h2>Display</h2>
+      <div class="seg" role="radiogroup" aria-label="Labels">
+        <span>Labels</span>
+        <button type="button" role="radio" data-labels="smart" aria-checked="true" title="Important nodes; more appear as you zoom in">Smart</button>
+        <button type="button" role="radio" data-labels="all" aria-checked="false" title="Every label that fits without overlapping">All</button>
+        <button type="button" role="radio" data-labels="none" aria-checked="false">None</button>
+      </div>
+      <div class="toggles">
+        <label class="tg"><input type="checkbox" id="dLinks" checked> Connections</label>
+        <label class="tg"><input type="checkbox" id="dArrows" checked> Arrows</label>
+        <label class="tg"><input type="checkbox" id="dHulls" checked> Clusters</label>
+        <label class="tg"><input type="checkbox" id="dActive" checked> Highlight active</label>
+      </div>
+      <div class="sliders">
+        <label>Node size <input type="range" id="dSize" min="50" max="200" value="100"></label>
+        <label>Link opacity <input type="range" id="dOpacity" min="2" max="100" value="28"></label>
+        <label>Pulse speed <input type="range" id="dAnim" min="0" max="100" value="50"></label>
+      </div>
+      <button class="btn wide" id="resetLayout" type="button">Reset layout</button>
+    </section>
+    <p class="foot">drag = move node · double-click = release (or expand a cluster) · scroll = zoom · drag empty space = pan · click a cluster title to focus it</p>
+  </aside>
+
+  <!-- E. top network controls -->
+  <div class="toolbar" role="toolbar" aria-label="Graph controls">
+    <button class="tb mob" id="openLeft" type="button" aria-label="Open controls">☰</button>
+    <button class="tb" id="tbFit" type="button" title="Fit the whole graph (F)">◎ Fit</button>
+    <button class="tb" id="tbIn" type="button" aria-label="Zoom in">＋</button>
+    <button class="tb" id="tbOut" type="button" aria-label="Zoom out">－</button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="tb" id="tbNode" type="button" title="Focus the selected node">⌖ Node</button>
+    <button class="tb" id="tbCluster" type="button" title="Focus the selected node's cluster">⬡ Cluster</button>
+    <button class="tb" id="tbGlobal" type="button" title="Clear focus and return to the global view (G)">⤢ Global</button>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="tb" id="tbPause" type="button" aria-pressed="false">❚❚ Freeze</button>
+    <button class="tb demo" id="tbDemo" type="button" aria-pressed="false" title="Sample events along the real workflow - not real activity">DEMO off</button>
+    <span class="mode" id="modeBadge">CONNECTING</span>
+    <button class="tb mob" id="openRight" type="button" aria-label="Open system panel">◉</button>
+  </div>
+  <div class="demo-banner" id="demoBanner" hidden>DEMO MODE — sample events on the real architecture. This is not real system activity.</div>
+
+  <!-- C + E. right column: category filter + JARVIS -->
+  <aside class="panel right" id="right" aria-label="System status">
+    <section class="box filters">
+      <h2>Clusters</h2>
+      <ul id="filters" class="list"></ul>
+      <div class="frow"><button class="lnk" id="fExpand" type="button">expand all</button><button class="lnk" id="fAll" type="button">show all</button><button class="lnk" id="fNone" type="button">hide all</button></div>
+    </section>
+
+    <details class="box legend" id="legend">
+      <summary><h2>Legend</h2></summary>
+      <h3>Node size = importance</h3>
+      <ul id="legendTiers" class="lg-list"></ul>
+      <h3>Connections</h3>
+      <ul id="legendEdges" class="lg-list"></ul>
+      <h3>Pulses</h3>
+      <ul class="lg-list">
+        <li><i class="pl" style="--c:#22d3ee"></i>real event (colour of the target)</li>
+        <li><i class="pl" style="--c:#fbbf24"></i>DEMO event (sample)</li>
+        <li><i class="pl" style="--c:#f87171"></i>failed call</li>
+        <li><i class="pl" style="--c:#ffffff"></i>traced path</li>
+      </ul>
+    </details>
+
+    <div class="hud" id="hud" aria-hidden="true">
+      <svg viewBox="0 0 200 200">
+        <defs>
+          <radialGradient id="hudGlow"><stop offset="0" stop-color="#22d3ee" stop-opacity=".22"/><stop offset="1" stop-color="#22d3ee" stop-opacity="0"/></radialGradient>
+        </defs>
+        <circle cx="100" cy="100" r="96" fill="url(#hudGlow)"/>
+        <g class="spin slow"><circle cx="100" cy="100" r="90" class="ring dash"/></g>
+        <g class="spin rev"><circle cx="100" cy="100" r="80" class="ring ticks"/></g>
+        <circle cx="100" cy="100" r="70" class="ring faint"/>
+        <circle cx="100" cy="100" r="70" class="arc" id="arcServices" pathLength="100" stroke-dasharray="0 100" transform="rotate(-90 100 100)"/>
+        <circle cx="100" cy="100" r="60" class="arc amber" id="arcLoad" pathLength="100" stroke-dasharray="0 100" transform="rotate(-90 100 100)"/>
+        <g class="spin fast"><path d="M100 36 A64 64 0 0 1 150 60" class="ring sweep"/></g>
+        <circle cx="100" cy="100" r="46" class="core"/>
+        <text x="100" y="98" class="hud-title">PIXRA AI</text>
+        <text x="100" y="114" class="hud-sub" id="hudSub">connecting</text>
+      </svg>
+    </div>
+    <div class="hud-legend"><span><i class="dot c"></i>services ready</span><span><i class="dot a"></i>in-flight requests</span></div>
+
+    <ul class="status" id="status">
+      <li><span>System</span><b id="sSystem" class="st unk">checking</b></li>
+      <li><span>Backend</span><b id="sBackend" class="st unk">checking</b></li>
+      <li><span>AI services</span><b id="sAi" class="st unk">checking</b></li>
+      <li><span>Database</span><b id="sDb" class="st unk">checking</b></li>
+      <li><span>Active requests</span><b id="sReq" class="st unk">–</b></li>
+      <li><span>Events recorded</span><b id="sEvents" class="st unk">–</b></li>
+    </ul>
+
+    <div class="jarvis">
+      <button type="button" class="jv" id="jEyes" aria-pressed="false"><b>EYES</b><span>off</span></button>
+      <button type="button" class="jv" id="jHolo" aria-pressed="true"><b>HOLO</b><span>on</span></button>
+      <button type="button" class="jv" id="jFocus" aria-pressed="false"><b>FOCUS</b><span>off</span></button>
+      <button type="button" class="jv" id="jReflex" aria-pressed="true"><b>REFLEX</b><span>on</span></button>
+    </div>
+
+    <section class="box feed-box">
+      <h2>Live events <span id="feedMode" class="tag">live</span></h2>
+      <ul id="feed" class="list feed" aria-live="polite"></ul>
+    </section>
+  </aside>
+
+  <!-- D. bottom command bar -->
+  <form class="cmdbar" id="cmdForm" autocomplete="off">
+    <label for="cmd" class="sr">Command</label>
+    <input id="cmd" placeholder="Ask PIXRA AI... search nodes, trace connections, inspect services..." spellcheck="false">
+    <button type="submit" class="run" aria-label="Run command">↵</button>
+    <div class="chips" id="chips"></div>
+    <p class="out" id="cmdOut" role="status"></p>
+  </form>
+
+  <canvas class="minimap" id="minimap" aria-label="Minimap: click or drag to move the view"></canvas>
+  <div class="tip" id="tip" hidden></div>
+  <div class="overlay" id="overlay"><div class="spinner"></div><p id="overlayMsg">Mapping the architecture…</p></div>
+  <div class="scrim" id="scrim" hidden></div>
+</div>
+<script src="/network-visualizer/vendor/d3-dispatch.js"></script>
+<script src="/network-visualizer/vendor/d3-quadtree.js"></script>
+<script src="/network-visualizer/vendor/d3-timer.js"></script>
+<script src="/network-visualizer/vendor/d3-force.js"></script>
+<script type="module" src="/network-visualizer/assets/app.js"></script>
+</body>
+</html>

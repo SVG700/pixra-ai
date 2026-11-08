@@ -1,0 +1,103 @@
+  # Render Blueprint: one free Node web service.
+# Render -> New -> Blueprint -> pick this repo. Render then asks for every "sync: false" value.
+# After deploy, open https://<service>.onrender.com/health and check "ready": true and selfTest "ok".
+services:
+  - type: web
+    name: pixra-ai
+    runtime: node
+    plan: free
+    region: singapore        # closest Render region to India
+    # npm ci installs exactly package-lock.json (incl. the linux-x64-gnu canvas binary) and runs
+    # ffmpeg-static's install script, which downloads the Linux ffmpeg binary.
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # --- runtime
+      - key: NODE_VERSION
+        value: "22"            # must match package.json "engines" (22.x)
+      - key: NODE_ENV
+        value: production      # enables all startup safety checks
+      - key: MOCK_MODE
+        value: "false"
+      - key: DEV_MODE
+        value: "false"         # /dev simulator returns 404
+      - key: LOG_LEVEL
+        value: info
+      - key: DELIVERY_HOURS
+        value: "3"
+      - key: DISPLAY_TIMEZONE
+        value: Asia/Kolkata
+      # PUBLIC_BASE_URL is optional on Render (RENDER_EXTERNAL_URL is used automatically)
+      - key: PUBLIC_BASE_URL
+        sync: false
+      # --- WhatsApp
+      # "false" = WEB DEMO MODE: customers chat at /demo (needs DEMO_PASSWORD), /webhook answers 503,
+      # and the four WHATSAPP_* secrets below may stay EMPTY. Set to "true" once Meta is set up
+      # (then all four are required) - no code change needed. See README "Switching to WhatsApp later".
+      - key: WHATSAPP_ENABLED
+        value: "false"
+      - key: WHATSAPP_TOKEN
+        sync: false            # leave empty in web demo mode
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false            # leave empty in web demo mode
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false            # leave empty in web demo mode
+      - key: WHATSAPP_APP_SECRET
+        sync: false            # required when WHATSAPP_ENABLED=true (webhook signature verification)
+      - key: GRAPH_API_VERSION
+        value: v21.0
+      # --- Telegram (the demo channel while WhatsApp is blocked)
+      # After the first deploy, register the webhook from your PC:
+      #   npm run telegram:set-webhook -- https://<service>.onrender.com
+      - key: TELEGRAM_ENABLED
+        value: "true"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false            # from @BotFather (required when TELEGRAM_ENABLED=true)
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false            # SAME value as in your local .env (32+ chars)
+      # --- Gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_FALLBACK_MODEL
+        value: gemini-3.1-flash-lite
+      - key: GEMINI_API_VERSION
+        value: v1beta
+      # --- Cloudflare Workers AI
+      - key: CF_ACCOUNT_ID
+        sync: false
+      - key: CF_API_TOKEN
+        sync: false
+      - key: CF_IMAGE_MODEL
+        value: "@cf/black-forest-labs/flux-1-schnell"
+      - key: CF_IMAGE_STEPS
+        value: "4"
+      - key: CF_WHISPER_MODEL
+        value: "@cf/openai/whisper-large-v3-turbo"
+      # --- Supabase (required; the app exits if missing or unreachable)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: posters
+      # --- Admin portal
+      - key: ADMIN_PASSWORD
+        sync: false            # >= 12 chars, not a common password, or the app refuses to start
+      - key: SESSION_SECRET
+        generateValue: true    # Render creates a random 256-bit secret
+      # --- Customer web demo chat (/demo)
+      - key: DEMO_PASSWORD
+        sync: false            # >= 12 chars, not common, different from ADMIN_PASSWORD (required in web demo mode)
+      - key: DEMO_RATE_LIMIT_PER_10MIN
+        value: "40"            # messages/uploads per IP per 10 min in /demo
+      # --- limits / demo
+      - key: WEBHOOK_RATE_LIMIT_PER_MIN
+        value: "600"
+      - key: ADMIN_LOGIN_MAX_ATTEMPTS
+        value: "5"
+      - key: DEMO_TEST_NUMBERS
+        sync: false            # optional: comma-separated numbers allowed for "Send test poster"

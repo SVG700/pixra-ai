@@ -1,0 +1,35 @@
+<%- include('partials/head', { title: 'Jobs' }) %>
+<h1>Poster jobs</h1>
+<nav class="tabs">
+  <% for (const [key, t] of Object.entries(tabs)) {
+       const n = t.statuses ? t.statuses.reduce((s, st) => s + (counts[st] || 0), 0) : Object.values(counts).reduce((a, b) => a + b, 0); %>
+    <a href="/admin?tab=<%= key %>" class="<%= key === tab ? 'on' : '' %>"><%= t.label %> (<%= n %>)</a>
+  <% } %>
+</nav>
+<div class="panel table-wrap">
+  <% if (!jobs.length) { %>
+    <p class="muted">No jobs here yet. Jobs appear when a customer confirms their brief on WhatsApp<% if (locals.devMode) { %> (or in the <a href="/dev/chat">dev chat</a>)<% } %>.</p>
+  <% } else { %>
+  <table>
+    <thead><tr><th>Created</th><th>Customer</th><th>Business</th><th>Poster</th><th>Status</th><th>Time left</th><th>Assigned to</th></tr></thead>
+    <tbody>
+    <% for (const j of jobs) {
+         const done = ['delivered'].includes(j.status);
+         const tl = h.timeLeft(j.deadline); %>
+      <tr class="row" onclick="location.href='/admin/jobs/<%= j.id %>'">
+        <td class="small"><a href="/admin/jobs/<%= j.id %>"><%= h.formatDateTime(j.created_at) %></a></td>
+        <td><%= j.customer?.name || '-' %><div class="muted small"><%= h.contact(j.customer) %></div></td>
+        <td><%= j.brief?.business_name || '-' %></td>
+        <td><%= j.brief?.headline || '-' %><div class="muted small"><%= j.brief?.size || '' %><%= j.revision_count ? ` · revision ${j.revision_count}` : '' %></div></td>
+        <td><span class="badge s-<%= j.status %>"><%= j.status.replace(/_/g, ' ') %></span><%- include('partials/activity', { a: j.activity, compact: true }) %></td>
+        <td class="<%= !done && tl.urgent ? 'urgent' : '' %>"><%= done ? '✔' : tl.label %></td>
+        <td><%= j.assigned_to || '-' %></td>
+      </tr>
+    <% } %>
+    </tbody>
+  </table>
+  <% } %>
+</div>
+<p class="muted small">Auto-refreshes every 30 seconds. Times in IST.</p>
+<script>setTimeout(() => location.reload(), 30000);</script>
+<%- include('partials/foot') %>

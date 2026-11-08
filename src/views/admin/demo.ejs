@@ -1,0 +1,51 @@
+<%- include('partials/head', { title: 'Send test poster' }) %>
+<p><a href="/admin">← All jobs</a></p>
+<h1>Send test poster</h1>
+<% if (ok) { %><div class="flash ok"><%= ok %></div><% } %>
+<% if (err) { %><div class="flash err"><%= err %></div><% } %>
+
+<div class="panel">
+  <p style="margin-top:0">Sends an <b>already approved</b> poster to a Telegram customer, a WhatsApp test number, or a web demo chat. Use it to show delivery
+    during a demo without waiting for a new poster to generate. It does not change any job.</p>
+  <% if (!whatsappEnabled) { %>
+  <p class="small" style="margin-bottom:8px"><b>Web demo mode:</b> the poster is delivered to the <a href="/demo">/demo</a> chat of the customer who signed in with this phone number (they must have signed in once).</p>
+  <% } %>
+  <p class="muted small" style="margin-bottom:0">
+    WhatsApp rules: the number must be on the test number's allowed list (Meta → WhatsApp → API Setup), and that phone
+    must have sent a message to the business number within the last 24 hours. Send "hi" from the demo phone first.
+    <% if (allowList.length) { %>Allowed numbers (DEMO_TEST_NUMBERS): <%= allowList.map((p) => `${p.slice(0, 2)}XXXXXX${p.slice(-4)}`).join(', ') %>.<% } %>
+  </p>
+</div>
+
+<% if (!posters.length) { %>
+  <div class="panel"><p class="muted" style="margin:0">No approved posters yet. Approve &amp; send one from a job first (in mock mode, run a poster through the <a href="/dev/chat">dev chat</a>).</p></div>
+<% } else { %>
+<form method="post" action="/admin/demo/send" class="panel">
+  <% if (telegramEnabled) { %>
+    <label for="telegram_customer">Send to a Telegram customer</label>
+    <select id="telegram_customer" name="telegram_customer" style="max-width:360px" onchange="document.getElementById('phone').required = !this.value">
+      <option value="">- not Telegram: use the phone number below -</option>
+      <% telegramCustomers.forEach((c, i) => { %>
+        <option value="<%= c.id %>" <%= i === 0 && !defaultPhone ? 'selected' : '' %>><%= c.name || 'Unnamed' %> · chat ..<%= String(c.phone).slice(-4) %><%= c.business_name ? ` · ${c.business_name}` : '' %></option>
+      <% }) %>
+    </select>
+    <% if (!telegramCustomers.length) { %><p class="muted small" style="margin:4px 0 0">No Telegram customers yet - send /start to the bot from the demo phone first.</p><% } %>
+  <% } %>
+  <label for="phone">Test number (country code + number, digits only)<%= telegramEnabled ? ' - for WhatsApp / web demo' : '' %></label>
+  <input type="text" id="phone" name="phone" value="<%= defaultPhone %>" placeholder="919876543210" inputmode="numeric" <%= telegramEnabled && telegramCustomers.length && !defaultPhone ? '' : 'required' %> style="max-width:280px">
+  <h2 style="margin-top:16px">Choose a poster</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px">
+    <% posters.forEach(({ asset, job }, i) => { const checked = selected ? selected === asset.id : i === 0; %>
+      <label style="display:block;border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;color:var(--ink);margin:0">
+        <img src="<%= asset.image_url %>" alt="Poster v<%= asset.version %>" loading="lazy" style="width:100%;border-radius:6px;display:block">
+        <span style="display:flex;gap:6px;align-items:center;margin-top:6px">
+          <input type="radio" name="asset_id" value="<%= asset.id %>" <%= checked ? 'checked' : '' %> required>
+          <span class="small"><b><%= job.brief?.business_name || '-' %></b> · v<%= asset.version %></span>
+        </span>
+      </label>
+    <% }) %>
+  </div>
+  <p style="margin-bottom:0"><button class="primary" type="submit">Send test poster</button></p>
+</form>
+<% } %>
+<%- include('partials/foot') %>

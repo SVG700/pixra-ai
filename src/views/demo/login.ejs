@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIXRA AI demo</title>
+<style>
+  :root { --bg:#efeae2; --panel:#fff; --ink:#111b21; --muted:#667781; --brand:#008069; --err:#b42318; --err-bg:#fef3f2; --line:#d1d7db; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b141a; --panel:#1f2c34; --ink:#e9edef; --muted:#8696a0; --brand:#00a884; --err:#f97066; --err-bg:#3a1714; --line:#2a3942; } }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:16px; }
+  .card { width:100%; max-width:400px; background:var(--panel); border-radius:14px; padding:24px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+  h1 { margin:0 0 4px; font-size:22px; } h1 span { color:var(--brand); }
+  p { margin:0 0 16px; color:var(--muted); }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  input { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:transparent; color:var(--ink); }
+  button { width:100%; margin-top:18px; font:inherit; font-weight:600; padding:11px; border:0; border-radius:10px; background:var(--brand); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  .err { background:var(--err-bg); color:var(--err); padding:10px 12px; border-radius:10px; margin-bottom:8px; font-size:14px; }
+  .small { font-size:12px; margin-top:14px; }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>PIXRA<span> AI</span></h1>
+  <p>Get a professional poster for your business — just by chatting.</p>
+  <% if (!configured) { %><div class="err">The demo is not enabled yet (DEMO_PASSWORD is not set).</div><% } %>
+  <% if (error) { %><div class="err" role="alert"><%= error %></div><% } %>
+  <form method="post" action="/demo/login">
+    <label for="name">Your name</label>
+    <input id="name" name="name" autocomplete="name" required maxlength="60" value="<%= name %>">
+    <label for="phone">Phone number (with country code)</label>
+    <input id="phone" name="phone" inputmode="tel" autocomplete="tel" required placeholder="919876543210" value="<%= phone %>">
+    <label for="password">Demo password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit" <%= configured ? '' : 'disabled' %>>Start chatting</button>
+  </form>
+  <p class="small">Demo only: your number is used to keep your chat and business details, not to message you.</p>
+</main>
+</body>
+</html>

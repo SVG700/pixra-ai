@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+
+# secrets: every .env variant except the committed template
+.env
+.env.*
+!.env.example
+
+# local mock database + uploaded/generated files
+data/
+uploads/
+*.sqlite
+*.db
+
+# logs
+logs/
+*.log
+npm-debug.log*
+
+# OS / editor / local tool config
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.claude/
+
+# Supabase CLI: link state, temp files, local secrets (never commit)
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+supabase/.env.*
+.supabase/
+
+# real test posters (contain test customer data)
+samples/real/
+
+# doctor --image test output
+samples/doctor-flux-test.jpg
+
+# doctor --image Hugging Face test output
+samples/doctor-hf-test.jpg

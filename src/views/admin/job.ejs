@@ -1,0 +1,177 @@
+<%- include('partials/head', { title: (job.brief?.business_name || 'Job') }) %>
+<%
+  const busy = ['brief_confirmed', 'generating'].includes(job.status);
+  const tl = h.timeLeft(job.deadline);
+  const delivered = job.status === 'delivered';
+  const qaClass = (s) => s == null ? '' : s >= 8 ? 's-delivered' : s >= 5 ? 's-pending_review' : 's-failed';
+%>
+<p><a href="/admin">← All jobs</a></p>
+<% if (ok) { %><div class="flash ok"><%= ok %></div><% } %>
+<% if (err) { %><div class="flash err"><%= err %></div><% } %>
+
+<div class="panel" style="display:flex;flex-wrap:wrap;gap:18px;align-items:center">
+  <div style="flex:1;min-width:240px">
+    <h1 style="margin:0"><%= job.brief?.business_name || 'Untitled' %> — <%= job.brief?.headline || '' %></h1>
+    <div class="muted small">Job <%= job.id.slice(0, 8) %> · created <%= h.formatDateTime(job.created_at) %> · attempts <%= job.attempts || 0 %><%= job.revision_count ? ` · revision ${job.revision_count}` : '' %></div>
+  </div>
+  <span class="badge s-<%= job.status %>" style="font-size:14px"><%= job.status.replace(/_/g, ' ') %></span>
+  <div>
+    <div class="small muted">Deadline <%= h.formatDateTime(job.deadline) %></div>
+    <div class="<%= !delivered && tl.urgent ? 'urgent' : '' %>"><%= delivered ? 'Delivered ✔' : tl.label %></div>
+  </div>
+  <form method="post" action="/admin/jobs/<%= job.id %>/assign" style="display:flex;gap:6px;align-items:end">
+    <div><label for="assigned_to">Assigned to</label><input type="text" id="assigned_to" name="assigned_to" value="<%= job.assigned_to || '' %>" placeholder="Designer name" style="width:160px"></div>
+    <button type="submit">Save</button>
+  </form>
+</div>
+
+<% if (job.status === 'failed' || job.error) { %>
+  <div class="panel" style="border-color:var(--red)">
+    <h2 style="color:var(--red)">Error</h2>
+    <pre style="white-space:pre-wrap;margin:0 0 10px"><%= job.error || 'Unknown error' %></pre>
+    <% if (job.status === 'failed') { %>
+      <form method="post" action="/admin/jobs/<%= job.id %>/retry"><button class="primary" type="submit">Retry generation</button></form>
+    <% } %>
+  </div>
+<% } %>
+<% if (activity) { %>
+  <%- include('partials/activity', { a: activity, compact: false }) %>
+<% } else if (busy) { %>
+  <div class="act act-run">⚙ Generating posters…</div>
+<% } %>
+<% if (busy || activity) { %>
+  <p class="muted small">This page refreshes automatically every 4 seconds.</p>
+  <script>setTimeout(() => location.reload(), 4000);</script>
+<% } %>
+<% if (job.revision_request) { %>
+  <div class="panel"><h2>Customer's latest change request</h2><p style="margin:0"><%= job.revision_request %></p></div>
+<% } %>
+
+<div class="grid two">
+  <section>
+    <div class="panel">
+      <h2>Poster versions (<%= assets.length %>)</h2>
+      <% if (!assets.length) { %><p class="muted">No posters yet.</p><% } %>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+      <% for (const a of assets) { const q = a.qa_report || {}; const isDelivered = job.delivered_asset_id === a.id; %>
+        <div style="border:1px solid <%= isDelivered ? 'var(--green)' : 'var(--line)' %>;border-radius:10px;padding:10px">
+          <a href="<%= a.image_url %>" target="_blank"><img src="<%= a.image_url %>" alt="Poster v<%= a.version %>" style="width:100%;border-radius:6px;display:block" loading="lazy"></a>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <b>v<%= a.version %></b>
+            <span class="small muted"><%= a.template %> · <%= a.size || '' %> · <%= a.source %></span>
+          </div>
+          <% const bgLabel = h.describeBackground(a); if (bgLabel) { %>
+            <div class="small" style="margin-top:4px">Background: <span class="<%= a.background_note ? 'urgent' : '' %>"><%= bgLabel %></span></div>
+          <% } %>
+          <% if (isDelivered) { %><div style="margin-top:6px"><span class="badge s-delivered">sent to customer</span> <a class="small" href="/admin/demo?asset=<%= a.id %>">Send as test poster →</a></div><% } %>
+          <div style="margin-top:6px" class="small">
+            <% if (q.manual) { %>
+              <span class="muted"><%= q.notes %></span>
+            <% } else if (a.qa_report) { %>
+              QA <span class="badge <%= qaClass(q.score) %>"><%= q.score ?? 'n/a' %>/10</span>
+              text <%= q.all_required_text_present === true ? '✔' : q.all_required_text_present === false ? '✖' : '?' %>
+              <% if ((q.readability_issues || []).length) { %><ul style="margin:4px 0 0 16px;padding:0"><% for (const i of q.readability_issues) { %><li><%= i %></li><% } %></ul><% } %>
+              <% if (q.notes) { %><div class="muted"><%= q.notes %></div><% } %>
+            <% } else { %><span class="muted">QA pending…</span><% } %>
+          </div>
+          <form method="post" action="/admin/jobs/<%= job.id %>/approve" style="margin-top:8px"
+                onsubmit="return confirm('Send v<%= a.version %> to <%= h.contact(customer) %> via <%= h.deliveryChannel(customer) %>?')">
+            <input type="hidden" name="asset_id" value="<%= a.id %>">
+            <button class="primary" type="submit" <%= busy ? 'disabled' : '' %> style="width:100%">Approve &amp; Send v<%= a.version %></button>
+          </form>
+        </div>
+      <% } %>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Reject &amp; regenerate</h2>
+      <form method="post" action="/admin/jobs/<%= job.id %>/regenerate">
+        <label for="note">Note for the image generator (added to the prompt)</label>
+        <textarea id="note" name="note" placeholder="e.g. warmer colours, show sweets on a plate, less clutter"></textarea>
+        <label for="provider">Generate the new backgrounds with</label>
+        <select id="provider" name="provider" style="max-width:320px">
+          <option value="">Default setting (IMAGE_PROVIDER=<%= imageProvider %>)</option>
+          <option value="huggingface">Hugging Face<%= hfState === 'not configured' ? ' (not configured - Cloudflare will be used)' : hfState === 'paused' ? ' (paused - Cloudflare will be used)' : '' %></option>
+          <option value="cloudflare">Cloudflare</option>
+        </select>
+        <p style="margin:8px 0 0"><button class="danger" type="submit" <%= busy ? 'disabled' : '' %>>Regenerate new backgrounds</button></p>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Edit text (re-render on the same background)</h2>
+      <form method="post" action="/admin/jobs/<%= job.id %>/edit-text">
+        <% for (const f of ['business_name', 'headline', 'key_details', 'date_time', 'contact_or_cta', 'style_preference']) { %>
+          <label for="f-<%= f %>"><%= h.LABELS[f] %></label>
+          <% if (f === 'key_details') { %>
+            <textarea id="f-<%= f %>" name="<%= f %>"><%= job.brief?.[f] || '' %></textarea>
+          <% } else { %>
+            <input type="text" id="f-<%= f %>" name="<%= f %>" value="<%= job.brief?.[f] || '' %>">
+          <% } %>
+        <% } %>
+        <label for="f-size">Size</label>
+        <select id="f-size" name="size">
+          <option value="square" <%= job.brief?.size !== 'portrait' ? 'selected' : '' %>>Square 1080×1080</option>
+          <option value="portrait" <%= job.brief?.size === 'portrait' ? 'selected' : '' %>>Portrait 1080×1350</option>
+        </select>
+        <label for="from_asset_id">Re-render on</label>
+        <select id="from_asset_id" name="from_asset_id">
+          <option value="">Latest version of each template</option>
+          <% for (const a of assets.filter((x) => x.background_url)) { %><option value="<%= a.id %>">Background of v<%= a.version %> (<%= a.template %>)</option><% } %>
+        </select>
+        <p style="margin:8px 0 0"><button type="submit" <%= busy ? 'disabled' : '' %>>Save &amp; re-render</button></p>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Upload a replacement poster</h2>
+      <form method="post" action="/admin/jobs/<%= job.id %>/upload" enctype="multipart/form-data">
+        <input type="file" name="poster" accept="image/png,image/jpeg,image/webp" required>
+        <label style="display:flex;gap:6px;align-items:center;font-size:14px;color:var(--ink)"><input type="checkbox" name="send"> Send to the customer right away</label>
+        <p style="margin:8px 0 0"><button type="submit">Upload</button></p>
+      </form>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <h2>Brief</h2>
+      <table>
+        <% for (const f of h.FIELDS) { %>
+          <tr><th style="width:110px"><%= h.LABELS[f] %></th><td><%= f === 'logo' ? (job.brief?.logo_url ? '' : (job.brief?.logo || '-')) : (job.brief?.[f] || '-') %>
+            <% if (f === 'logo' && job.brief?.logo_url) { %><img src="<%= job.brief.logo_url %>" alt="logo" style="max-height:60px;max-width:160px;background:#fff;padding:4px;border-radius:6px"><% } %></td></tr>
+        <% } %>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Customer</h2>
+      <div><b><%= customer?.name || '-' %></b> · <%= h.contact(customer) %></div>
+    </div>
+
+    <div class="panel">
+      <h2>Chat history</h2>
+      <div style="max-height:620px;overflow-y:auto;display:flex;flex-direction:column;gap:6px" id="chat">
+        <% for (const m of messages) { %>
+          <div style="align-self:<%= m.direction === 'in' ? 'flex-start' : 'flex-end' %>;max-width:85%;background:<%= m.direction === 'in' ? 'var(--grey-bg)' : 'var(--green-bg)' %>;padding:6px 9px;border-radius:8px">
+            <% if (m.media_url && m.type === 'image') { %><a href="<%= m.media_url %>" target="_blank"><img src="<%= m.media_url %>" alt="image" style="max-width:200px;max-height:200px;display:block;border-radius:4px"></a><% } %>
+            <% if (m.media_url && m.type === 'audio') { %><audio controls src="<%= m.media_url %>" style="max-width:220px"></audio><% } %>
+            <div style="white-space:pre-wrap"><%= m.type === 'audio' ? '🎤 ' : '' %><%= m.content || '' %></div>
+            <div class="muted small" style="text-align:right"><%= h.formatDateTime(m.created_at) %></div>
+          </div>
+        <% } %>
+      </div>
+      <script>const c = document.getElementById('chat'); c.scrollTop = c.scrollHeight;</script>
+    </div>
+
+    <div class="panel">
+      <h2>Review log</h2>
+      <% if (!reviews.length) { %><p class="muted">No actions yet.</p><% } %>
+      <% for (const r of [...reviews].reverse()) { %>
+        <div class="small" style="padding:4px 0;border-bottom:1px solid var(--line)"><b><%= r.reviewer || '-' %></b> · <%= r.action.replace(/_/g, ' ') %><%= r.notes ? ` — ${r.notes}` : '' %> <span class="muted">· <%= h.formatDateTime(r.created_at) %></span></div>
+      <% } %>
+    </div>
+  </section>
+</div>
+<%- include('partials/foot') %>

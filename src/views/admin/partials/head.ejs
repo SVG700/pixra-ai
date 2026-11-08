@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><%= title %> · PIXRA AI</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#fff; --ink:#15171a; --muted:#6b7280; --line:#e5e7eb; --brand:#0f766e; --brand-ink:#fff;
+    --red:#dc2626; --red-bg:#fef2f2; --amber:#b45309; --amber-bg:#fffbeb; --green:#15803d; --green-bg:#f0fdf4; --blue:#1d4ed8; --blue-bg:#eff6ff; --grey-bg:#f3f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1115; --panel:#171a21; --ink:#e7e9ee; --muted:#9aa3b2; --line:#2a2f3a; --brand:#14b8a6; --brand-ink:#04201d;
+      --red:#f87171; --red-bg:#2a1414; --amber:#fbbf24; --amber-bg:#2a2210; --green:#4ade80; --green-bg:#10241a; --blue:#93c5fd; --blue-bg:#121d33; --grey-bg:#222631; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  a { color:var(--brand); }
+  header.top { display:flex; align-items:center; gap:16px; padding:10px 20px; background:var(--panel); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+  header.top .logo { font-weight:800; letter-spacing:.5px; text-decoration:none; color:var(--ink); }
+  header.top .logo span { color:var(--brand); }
+  header.top .sp { flex:1; }
+  header.top form { margin:0; }
+  main { max-width:1280px; margin:0 auto; padding:20px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  h1 { font-size:20px; margin:0 0 12px; } h2 { font-size:15px; margin:0 0 10px; }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); font-weight:600; }
+  tr.row:hover td { background:var(--grey-bg); cursor:pointer; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; font-weight:600; background:var(--grey-bg); white-space:nowrap; }
+  .s-pending_review, .s-qa_done { background:var(--amber-bg); color:var(--amber); }
+  .s-failed { background:var(--red-bg); color:var(--red); }
+  .s-delivered, .s-approved { background:var(--green-bg); color:var(--green); }
+  .s-generating, .s-brief_confirmed, .s-revision_requested { background:var(--blue-bg); color:var(--blue); }
+  .urgent { color:var(--red); font-weight:700; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .tabs a { padding:6px 12px; border-radius:99px; text-decoration:none; color:var(--ink); background:var(--panel); border:1px solid var(--line); }
+  .tabs a.on { background:var(--brand); color:var(--brand-ink); border-color:var(--brand); }
+  button, .btn { font:inherit; border:1px solid var(--line); background:var(--panel); color:var(--ink); padding:7px 12px; border-radius:8px; cursor:pointer; text-decoration:none; display:inline-block; }
+  button.primary, .btn.primary { background:var(--brand); border-color:var(--brand); color:var(--brand-ink); font-weight:600; }
+  button.danger { border-color:var(--red); color:var(--red); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  input[type=text], input[type=password], textarea, select { font:inherit; width:100%; padding:7px 9px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); }
+  textarea { min-height:64px; resize:vertical; }
+  label { display:block; font-size:12px; color:var(--muted); margin:8px 0 3px; }
+  .flash { padding:10px 14px; border-radius:8px; margin-bottom:14px; font-weight:500; }
+  .flash.ok { background:var(--green-bg); color:var(--green); } .flash.err { background:var(--red-bg); color:var(--red); }
+  .grid { display:grid; gap:16px; }
+  @media (min-width: 1000px) { .grid.two { grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); } }
+  .table-wrap { overflow-x:auto; }
+  .wa-banner { background:var(--amber-bg); color:var(--amber); border-bottom:1px solid var(--line); padding:9px 20px; font-weight:600; text-align:center; }
+  .act { margin-top:4px; padding:8px 12px; border-radius:8px; font-weight:500; }
+  .act.small { padding:2px 8px; font-size:12px; display:inline-block; }
+  .act-wait { background:var(--amber-bg); color:var(--amber); }
+  .act-run { background:var(--blue-bg); color:var(--blue); }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="/admin">PIXRA<span> AI</span> admin</a>
+  <span class="sp"></span>
+  <% if (typeof admin !== 'undefined' && admin) { %>
+    <a href="/admin/demo" class="btn">Send test poster</a>
+    <span class="muted small">Signed in as <b><%= admin.name %></b></span>
+    <form method="post" action="/admin/logout"><button type="submit">Log out</button></form>
+  <% } %>
+</header>
+<% if (typeof whatsappEnabled !== 'undefined' && !whatsappEnabled) { %>
+<div class="wa-banner" role="status">WhatsApp not connected - web demo mode. Customers chat <%= typeof telegramEnabled !== 'undefined' && telegramEnabled ? 'on Telegram or ' : '' %>at <a href="/demo">/demo</a>; approved posters are delivered to the chat they used.</div>
+<% } %>
+<main>
