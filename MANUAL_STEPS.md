@@ -14,8 +14,9 @@ Legend: **[P1]**…**[P5]** = the phase that first needs this step. ✅ = tick w
 
 > ✅ **Done for project `pixra-ai` (ref `rcxgrctyhmnylkdsklqe`) via the CLI on 8 Nov 2026:** `npx supabase login`,
 > `npx supabase link --project-ref rcxgrctyhmnylkdsklqe`, `npx supabase db push --linked` (migration in
-> `supabase/migrations/`), all 6 tables + public `posters` bucket verified, and `SUPABASE_URL` + the new
-> `sb_secret_…` key written to `.env`. The manual dashboard steps below are only needed for a *different* project.
+> `supabase/migrations/`), all 6 tables + public `posters` bucket verified. `SUPABASE_URL` and the
+> `sb_secret_…` key are set on Render; to run locally against this project, copy them into your `.env` too.
+> The manual dashboard steps below are only needed for a *different* project.
 
 1. ☐ Go to https://supabase.com → **Sign in** → **New project**.
    - Name: `pixra-ai`; set a database password (save it in your password manager; the app doesn't need it).
