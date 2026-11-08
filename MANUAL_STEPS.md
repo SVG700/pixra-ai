@@ -12,8 +12,8 @@ Legend: **[P1]**…**[P5]** = the phase that first needs this step. ✅ = tick w
 
 ## A. Supabase (database + poster storage) — [P1]
 
-> ✅ **Done for project `narozai-test` (ref `ohwmrwpqjytfwqidcwuv`) via the CLI on 24 Oct:** `npx supabase login`,
-> `npx supabase link --project-ref ohwmrwpqjytfwqidcwuv`, `npx supabase db push --linked` (migration in
+> ✅ **Done for project `pixra-ai` (ref `rcxgrctyhmnylkdsklqe`) via the CLI on 8 Nov 2026:** `npx supabase login`,
+> `npx supabase link --project-ref rcxgrctyhmnylkdsklqe`, `npx supabase db push --linked` (migration in
 > `supabase/migrations/`), all 6 tables + public `posters` bucket verified, and `SUPABASE_URL` + the new
 > `sb_secret_…` key written to `.env`. The manual dashboard steps below are only needed for a *different* project.
 
@@ -193,7 +193,7 @@ You deploy with `WHATSAPP_ENABLED=false` (set by `render.yaml`), so **no Meta/Wh
     | `GEMINI_API_KEY` | from your `.env` |
     | `CF_ACCOUNT_ID` | from your `.env` |
     | `CF_API_TOKEN` | from your `.env` |
-    | `SUPABASE_URL` | `https://ohwmrwpqjytfwqidcwuv.supabase.co` |
+    | `SUPABASE_URL` | `https://rcxgrctyhmnylkdsklqe.supabase.co` |
     | `SUPABASE_SERVICE_ROLE_KEY` | from your `.env` (the `sb_secret_…` key) |
     | `ADMIN_PASSWORD` | a **new** password, 12+ characters |
     | `DEMO_PASSWORD` | a **new** password, 12+ characters, different from ADMIN_PASSWORD |
